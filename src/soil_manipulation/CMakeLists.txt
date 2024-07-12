@@ -15,7 +15,6 @@ generate_messages(DEPENDENCIES std_msgs)
 catkin_package(CATKIN_DEPENDS message_runtime std_msgs)
 
 catkin_install_python(PROGRAMS
-    nodes/ur5e_controller.py
     nodes/send_pose_cmd.py
     nodes/ur5e_state_listener.py
     nodes/ur5e_controller_moveit.py
@@ -24,10 +23,6 @@ catkin_install_python(PROGRAMS
 )
 
 install(FILES
-    launch/grasping_pcd_processing.launch
-    launch/grasping_controller.launch
-    launch/kuka_moveit_controller.launch
-    launch/kuka_pcd_sampler.launch
-    launch/camera.launch
+    launch/ur5e_moveit_controller.launch
     DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
