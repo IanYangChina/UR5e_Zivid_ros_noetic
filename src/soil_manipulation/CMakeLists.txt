@@ -19,10 +19,14 @@ catkin_install_python(PROGRAMS
     nodes/ur5e_state_listener.py
     nodes/ur5e_controller_moveit.py
     nodes/keyboard_event_node.py
+    nodes/live_zivid_2d.py
+    nodes/verify_calibration_result_aruco.py
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
 install(FILES
     launch/ur5e_moveit_controller.launch
+    launch/tracking.launch
+    launch/veryfy_calibration_result_aruco.launch
     DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )

@@ -23,9 +23,6 @@ class StateListener:
         self.moveit_robot = moveit_commander.RobotCommander(robot_description="robot_description")
         self.moveit_scene = moveit_commander.PlanningSceneInterface()
         self.moveit_group = moveit_commander.MoveGroupCommander("manipulator", robot_description="robot_description")
-        self.moveit_group.set_pose_reference_frame("base")
-        self.end_effector_link = self.moveit_group.get_end_effector_link()
-        print(self.moveit_group.get_planning_frame())
 
     def current_state_callback(self, msg):
         self.current_joint_msg = msg
