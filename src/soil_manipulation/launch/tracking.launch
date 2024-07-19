@@ -20,6 +20,6 @@
     </node>
 
     <!-- start the capture node -->
-    <node name="capture_2d" pkg="soil_manipulation" type="live_zivid_2d.py">
+    <node name="capture_2d" pkg="soil_manipulation" type="zivid_live_2d.py">
     </node>
 </launch>
