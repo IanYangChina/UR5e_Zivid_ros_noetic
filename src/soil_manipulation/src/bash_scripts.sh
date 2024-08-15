@@ -1,0 +1,1 @@
+roslaunch ur_robot_driver ur5e_bringup.launch robot_ip:=192.168.0.210 kinematics_config:=/home/xintong/Documents/Software/ur_robot_ros_driver/src/Universal_Robots_ROS_Driver/my_robot_calibration.yaml

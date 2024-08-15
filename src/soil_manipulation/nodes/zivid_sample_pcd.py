@@ -31,12 +31,13 @@ class Sample:
         pcd_raw = o3d.geometry.PointCloud(points=o3d.utility.Vector3dVector(points))
         raw_cam_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.2)
         o3d.visualization.draw_geometries([raw_cam_frame, pcd_raw])
-        path_to_save_pcd = os.path.join(script_path, '..', 'src', 'pcd_0.ply')
+        os.makedirs(os.path.join(script_path, '..', 'src', 'pcds'), exist_ok=True)
+        path_to_save_pcd = os.path.join(script_path, '..', 'src', 'pcds', 'pcd_0.ply')
         i = 0
         while True:
             if os.path.exists(path_to_save_pcd):
                 i += 1
-                path_to_save_pcd = os.path.join(script_path, '..', 'src', 'pcd_'+str(i)+'.ply')
+                path_to_save_pcd = os.path.join(script_path, '..', 'src', 'pcds', 'pcd_'+str(i)+'.ply')
             else:
                 break
         o3d.io.write_point_cloud(path_to_save_pcd, pcd_raw)

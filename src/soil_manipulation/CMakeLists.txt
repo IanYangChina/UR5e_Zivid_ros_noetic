@@ -9,6 +9,9 @@ add_service_files(FILES
     TargetPose.srv
     Reset.srv
     MoveDistance.srv
+    PrintPose.srv
+    Rest.srv
+    Skill.srv
 )
 
 generate_messages(DEPENDENCIES std_msgs)
@@ -27,6 +30,7 @@ catkin_install_python(PROGRAMS
 
 install(FILES
     launch/ur5e_moveit_controller.launch
+    launch/ur5e_state_listener.launch
     launch/tracking.launch
     launch/veryfy_calibration_result_aruco.launch
     DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}

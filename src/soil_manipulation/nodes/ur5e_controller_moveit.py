@@ -3,16 +3,16 @@
 import os
 import copy
 import sys
-import math
 import rospy, rosnode
 import numpy as np
 from geometry_msgs.msg import PoseStamped
+from sensor_msgs.msg import JointState
 from std_msgs.msg import Bool, String
 from utils.poses import *
 import moveit_commander
-import quaternion
 from scipy.spatial.transform import Rotation
 from soil_manipulation.srv import TargetPose, TargetPoseResponse, Reset, ResetResponse, MoveDistance, MoveDistanceResponse
+from soil_manipulation.srv import PrintPose, PrintPoseResponse, Rest, RestResponse, Skill, SkillResponse
 import matplotlib.pyplot as plt
 
 DISTANCE_THRESHOLD = 0.001
@@ -32,8 +32,10 @@ class Controller:
     def __init__(self, translation_speed=0.05, rotation_speed=10):
         rospy.init_node('controller_node', anonymous=True)
 
+        self.current_joint_msg = JointState()
         self.current_pose_msg = PoseStamped()
         self.current_xyz = np.array([0.0, 0.0, 0.0])
+        self.current_euler = np.array([0.0, 0.0, 0.0])
         self.current_header_seq = 0
 
         self.moveit_commander = moveit_commander.roscpp_initialize(sys.argv)
@@ -45,10 +47,14 @@ class Controller:
         self.delta_angle = 5  # angle per waypoint
 
         self.init_robot()
+        rospy.Subscriber('/joint_states', JointState, self.current_pose_callback)
 
-        self.sample_service = rospy.Service('move_to_target', TargetPose, self.move_target)
+        self.print_pose_service = rospy.Service('print_pose', PrintPose, self.print_pose)
         self.reset_service = rospy.Service('reset', Reset, self.reset)
-        self.move_service = rospy.Service('move_distance', MoveDistance, self.move_distance)
+        self.rest_service = rospy.Service('rest', Rest, self.rest)
+        self.move_distance_service = rospy.Service('move_distance', MoveDistance, self.move_distance)
+        self.move_target_service = rospy.Service('move_to_target', TargetPose, self.move_target)
+        self.skill_service = rospy.Service('skill', Skill, self.execute_skill)
 
         rospy.Subscriber('/keyboard', String, callback=self.keyboard_callback)
         self.translation_speed = translation_speed
@@ -58,8 +64,18 @@ class Controller:
         rospy.loginfo("Initializing robot...")
         # plan = self.moveit_group.plan(joints=waiting_joint_state.position)
         # self.moveit_group.execute(plan[1], wait=True)
-        plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
+        plan = self.moveit_group.plan(joints=waiting_joint_state.position)
         self.moveit_group.execute(plan[1], wait=True)
+
+    def reset(self, req):
+        plan = self.moveit_group.plan(joints=waiting_joint_state.position)
+        self.moveit_group.execute(plan[1], wait=True)
+        return ResetResponse()
+
+    def rest(self, req):
+        plan = self.moveit_group.plan(joints=resting_joint_state.position)
+        self.moveit_group.execute(plan[1], wait=True)
+        return RestResponse()
 
     def keyboard_callback(self, data):
         key_pressed = data.data
@@ -80,21 +96,29 @@ class Controller:
             target_pose.pose.position.z -= self.translation_speed
         else:
             if key_pressed == '7':
-                delta_quat_xyzw = Rotation.from_euler('xyz', np.array([0.0, 0.0, self.rotation_speed]), degrees=True).as_quat()
+                delta_quat_xyzw = Rotation.from_euler('xyz', np.array([0.0, 0.0, self.rotation_speed]),
+                                                      degrees=True).as_quat()
             elif key_pressed == '8':
-                delta_quat_xyzw = Rotation.from_euler('xyz', np.array([0.0, 0.0, -self.rotation_speed]), degrees=True).as_quat()
+                delta_quat_xyzw = Rotation.from_euler('xyz', np.array([0.0, 0.0, -self.rotation_speed]),
+                                                      degrees=True).as_quat()
             elif key_pressed == '9':
-                delta_quat_xyzw = Rotation.from_euler('xyz', np.array([0.0, self.rotation_speed, 0.0]), degrees=True).as_quat()
+                delta_quat_xyzw = Rotation.from_euler('xyz', np.array([0.0, self.rotation_speed, 0.0]),
+                                                      degrees=True).as_quat()
             elif key_pressed == '0':
-                delta_quat_xyzw = Rotation.from_euler('xyz', np.array([0.0, -self.rotation_speed, 0.0]), degrees=True).as_quat()
+                delta_quat_xyzw = Rotation.from_euler('xyz', np.array([0.0, -self.rotation_speed, 0.0]),
+                                                      degrees=True).as_quat()
             elif key_pressed == '-':
-                delta_quat_xyzw = Rotation.from_euler('xyz', np.array([self.rotation_speed, 0.0, 0.0]), degrees=True).as_quat()
+                delta_quat_xyzw = Rotation.from_euler('xyz', np.array([self.rotation_speed, 0.0, 0.0]),
+                                                      degrees=True).as_quat()
             elif key_pressed == '=':
-                delta_quat_xyzw = Rotation.from_euler('xyz', np.array([-self.rotation_speed, 0.0, 0.0]), degrees=True).as_quat()
+                delta_quat_xyzw = Rotation.from_euler('xyz', np.array([-self.rotation_speed, 0.0, 0.0]),
+                                                      degrees=True).as_quat()
             else:
-                delta_quat_xyzw = Rotation.from_euler('xyz', np.array([0.0, 0.0, 0.0]), degrees=True).as_quat()
+                delta_quat_xyzw = Rotation.from_euler('xyz', np.array([0.0, 0.0, 0.0]),
+                                                      degrees=True).as_quat()
             delta_quat_wxyz = [delta_quat_xyzw[-1], delta_quat_xyzw[0], delta_quat_xyzw[1], delta_quat_xyzw[2]]
-            tar_quat = qmul([p.pose.orientation.w, p.pose.orientation.x, p.pose.orientation.y, p.pose.orientation.z], delta_quat_wxyz)
+            tar_quat = qmul([p.pose.orientation.w, p.pose.orientation.x, p.pose.orientation.y, p.pose.orientation.z],
+                            delta_quat_wxyz)
             target_pose.pose.orientation.w = tar_quat[0]
             target_pose.pose.orientation.x = tar_quat[1]
             target_pose.pose.orientation.y = tar_quat[2]
@@ -117,31 +141,47 @@ class Controller:
         tar_p.orientation.x = tar_quat[1]
         tar_p.orientation.y = tar_quat[2]
         tar_p.orientation.z = tar_quat[3]
-
-        waypoints = self.compose_cartesian_waypoints(p, tar_p)
-        self.plan_and_execute(waypoints)
+        self.plan_and_execute([p, tar_p])
 
         return MoveDistanceResponse()
 
-    def reset(self, req):
-        plan = self.moveit_group.plan(joints=resting_joint_state.position)
-        self.moveit_group.execute(plan[1], wait=True)
-        return ResetResponse()
-
     def move_target(self, req):
-        cur_p = self.moveit_group.get_current_pose().pose
-        tar_p = copy.deepcopy(cur_p)
+        p = self.moveit_group.get_current_pose().pose
+        tar_p = copy.deepcopy(p)
         tar_p.pose.position.x = req.x
         tar_p.pose.position.y = req.y
         tar_p.pose.position.z = req.z
-        delta_quat_xyzw = Rotation.from_euler('xyz', np.array([req.a, req.b, req.c]), degrees=True).as_quat()
-        tar_p.pose.orientation.x = delta_quat_xyzw[0]
-        tar_p.pose.orientation.y = delta_quat_xyzw[1]
-        tar_p.pose.orientation.z = delta_quat_xyzw[2]
-        tar_p.pose.orientation.w = delta_quat_xyzw[3]
-        waypoints = self.compose_cartesian_waypoints(cur_p, tar_p)
+        tar_quat_xyzw = Rotation.from_euler('xyz', np.array([req.a, req.b, req.c]), degrees=True).as_quat()
+        tar_p.pose.orientation.x = tar_quat_xyzw[0]
+        tar_p.pose.orientation.y = tar_quat_xyzw[1]
+        tar_p.pose.orientation.z = tar_quat_xyzw[2]
+        tar_p.pose.orientation.w = tar_quat_xyzw[3]
+        waypoints = self.compose_cartesian_waypoints(p, tar_p)
         self.plan_and_execute(waypoints)
         return TargetPoseResponse()
+
+    def execute_skill(self, req):
+        plan = self.moveit_group.plan(joints=waiting_joint_state.position)
+        self.moveit_group.execute(plan[1], wait=True)
+        plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
+        self.moveit_group.execute(plan[1], wait=True)
+        rospy.sleep(1)
+        skill_ind = req.n
+        if skill_ind == -1:
+            p = self.moveit_group.get_current_pose().pose
+            w0 = copy.deepcopy(p)
+            w0.position.z += 0.1
+            w1 = copy.deepcopy(w0)
+            w1.position.x += 0.09
+            w2 = copy.deepcopy(w1)
+            w2.position.z -= 0.16
+            w3 = copy.deepcopy(w2)
+            w3.position.x -= 0.12
+            w4 = copy.deepcopy(w3)
+            w4.position.z += 0.1
+            self.plan_and_execute([w0, w1, w2, w3, w4])
+
+        return SkillResponse()
 
     def compose_cartesian_waypoints(self, pose0, pose1):
         # todo: quat to euler is problematic
@@ -233,13 +273,35 @@ class Controller:
         return plan
 
     def current_pose_callback(self, data):
-        self.current_pose_msg = data
+        self.current_joint_msg = data
+        self.current_pose_msg = self.moveit_group.get_current_pose()
         self.current_xyz = np.array([
-            data.pose.position.x,
-            data.pose.position.y,
-            data.pose.position.z
+            self.current_pose_msg.pose.position.x,
+            self.current_pose_msg.pose.position.y,
+            self.current_pose_msg.pose.position.z
         ])
+        self.current_euler = Rotation.from_quat([self.current_pose_msg.pose.orientation.x,
+                                                 self.current_pose_msg.pose.orientation.y,
+                                                 self.current_pose_msg.pose.orientation.z,
+                                                 self.current_pose_msg.pose.orientation.w]).as_euler('xyz', degrees=True)
         self.current_header_seq = data.header.seq
+
+    def print_pose(self, req):
+        rospy.loginfo("Current pose: ")
+        rospy.loginfo("Position: x={}, y={}, z={}".format(self.current_xyz[0],
+                                                          self.current_xyz[1],
+                                                          self.current_xyz[2]))
+        rospy.loginfo("Euler (deg): a={}, b={}, c={}".format(self.current_euler[0],
+                                                             self.current_euler[1],
+                                                             self.current_euler[2]))
+        rospy.loginfo("Euler (rad): a={}, b={}, c={}".format(np.radians(self.current_euler[0]),
+                                                             np.radians(self.current_euler[1]),
+                                                             np.radians(self.current_euler[2])))
+        rospy.loginfo("Orientation: x={}, y={}, z={}, w={}".format(self.current_pose_msg.pose.orientation.x,
+                                                                   self.current_pose_msg.pose.orientation.y,
+                                                                   self.current_pose_msg.pose.orientation.z,
+                                                                   self.current_pose_msg.pose.orientation.w))
+        return PrintPoseResponse()
 
     def plot_eef_v(self, plan, save=False, tr_name='tr'):
         cartesian_positions = []

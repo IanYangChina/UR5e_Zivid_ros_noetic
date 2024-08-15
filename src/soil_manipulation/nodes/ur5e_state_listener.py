@@ -26,6 +26,13 @@ class StateListener:
 
     def current_state_callback(self, msg):
         self.current_joint_msg = msg
+        j0 = self.current_joint_msg.position[0]
+        j1 = self.current_joint_msg.position[1]
+        j2 = self.current_joint_msg.position[2]
+        j3 = self.current_joint_msg.position[3]
+        j4 = self.current_joint_msg.position[4]
+        j5 = self.current_joint_msg.position[5]
+        self.current_joint_msg.position = [j2, j1, j0, j3, j4, j5]
         pose = self.moveit_group.get_current_pose().pose
         self.current_xyz = np.array([pose.position.x, pose.position.y, pose.position.z])
         self.current_quat = np.array([pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w])

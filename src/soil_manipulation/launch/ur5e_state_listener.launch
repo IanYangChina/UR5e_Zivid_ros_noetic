@@ -1,0 +1,4 @@
+<launch>
+    <include file="$(find ur5e_moveit_config)/launch/moveit_planning_execution.launch"/>
+    <node name="ur5e_state_listener" pkg="soil_manipulation" type="ur5e_state_listener.py" output="screen" launch-prefix="bash -c 'sleep 0.5; $0 $@' "/>
+</launch>
