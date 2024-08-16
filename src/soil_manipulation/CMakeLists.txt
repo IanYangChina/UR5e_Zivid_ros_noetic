@@ -12,6 +12,8 @@ add_service_files(FILES
     PrintPose.srv
     Rest.srv
     Skill.srv
+    Task.srv
+    PreManipulation.srv
 )
 
 generate_messages(DEPENDENCIES std_msgs)
