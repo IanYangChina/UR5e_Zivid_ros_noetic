@@ -188,7 +188,8 @@ class Controller:
             w2.position.x -= 0.12
             w3 = copy.deepcopy(w2)
             w3.position.z += 0.12
-            self.plan_and_execute([p, w0, w1, w2, w3])
+            # self.plan_and_execute([p, w0, w1, w2, w3])
+            self.plan_and_show([p, w0, w1, w2, w3], save_tr=True, tr_name='sys_id_1')
         elif task_ind == -2:
             # system identification motion 2
             p = self.moveit_group.get_current_pose().pose
@@ -211,7 +212,8 @@ class Controller:
             w2.position.y -= 0.12
             w3 = copy.deepcopy(w2)
             w3.position.z += 0.12
-            self.plan_and_execute([p, w0, w1, w2, w3])
+            # self.plan_and_execute([p, w0, w1, w2, w3])
+            self.plan_and_show([p, w0, w1, w2, w3], save_tr=True, tr_name='sys_id_2')
         elif task_ind == 0:
             p = self.moveit_group.get_current_pose().pose
             w0 = copy.deepcopy(p)
@@ -444,7 +446,7 @@ class Controller:
                                    0.0)         # jump_threshold
         # moveit sometimes uses the same time value for the last two trajectory points, causing failure execution
         if plan.joint_trajectory.points[-2].time_from_start.nsecs == plan.joint_trajectory.points[-1].time_from_start.nsecs:
-            plan.joint_trajectory.points[-1].time_from_start.nsecs += 1000
+            plan.joint_trajectory.points[-1].time_from_start.nsecs += 10000
         # print(plan)
         # self.plot_eef_v(plan)
         self.moveit_group.execute(plan, wait=True)
@@ -459,9 +461,9 @@ class Controller:
 
         # moveit sometimes uses the same time value for the last two trajectory points, causing failure execution
         if plan.joint_trajectory.points[-2].time_from_start.nsecs == plan.joint_trajectory.points[-1].time_from_start.nsecs:
-            plan.joint_trajectory.points[-1].time_from_start.nsecs += 1000
+            plan.joint_trajectory.points[-1].time_from_start.nsecs += 10000
 
-        if show:
+        if show or save_tr:
             self.plot_eef_v(plan, save_tr, tr_name)
         return plan
 
@@ -497,61 +499,66 @@ class Controller:
         return PrintPoseResponse()
 
     def plot_eef_v(self, plan, save=False, tr_name='tr'):
+        script_dir = os.path.dirname(__file__)
+        data_dir = os.path.join(script_dir, '..', 'src', 'cartesian_velocities')
         cartesian_positions = []
         cartesian_velocities = []
         time_frames = []
         time_difference = [0.0]
+        dps = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
         for i in range(len(plan.joint_trajectory.points)-1):
             position = plan.joint_trajectory.points[i].positions
             velocity = plan.joint_trajectory.points[i].velocities
             jacobian = self.moveit_group.get_jacobian_matrix(list(position))
-            cartesian_position = np.dot(jacobian, np.array(position))
-            cartesian_positions.append(cartesian_position)
             cartesian_velocity = np.dot(jacobian, np.array(velocity))
             cartesian_velocities.append(cartesian_velocity)
             time_frames.append(plan.joint_trajectory.points[i].time_from_start.secs + plan.joint_trajectory.points[i].time_from_start.nsecs / 1e9)
             if i > 0:
                 time_difference.append(time_frames[-1] - time_frames[-2])
+                dp = (time_difference[-1] * cartesian_velocity) + dps[-1]
+                dps.append(dp)
             # print('Timestamp: {}'.format(time_frames[-1]))
             # print('Time difference: {}'.format(time_difference[-1]))
             # print('Cartesian velocity: {}'.format(cartesian_velocity))
 
-        if save:
-            script_dir = os.path.dirname(__file__)
-            data_dir = os.path.join(script_dir, '..', '..', 'test', 'cartesian_velocities')
-            n = 0
-            while os.path.exists(os.path.join(data_dir, tr_name+'_eef_v_'+str(n)+'.npy')):
-                n += 1
-            np.save(os.path.join(data_dir, tr_name+'_eef_v_'+str(n)+'.npy'), np.array(cartesian_velocities))
-            np.save(os.path.join(data_dir, tr_name+'_timestamps_'+str(n)+'.npy'), np.array(time_frames))
-
-        legends = ['x', 'y', 'z', 'rx', 'ry', 'rz']
+        # legends = ['x', 'y', 'z', 'rx', 'ry', 'rz']
         # plt.plot(cartesian_velocities)
         # plt.legend(legends)
         # plt.xlabel('Horizon')
         # plt.ylabel('Velocity')
         # plt.title('End-effector velocity')
-        # plt.show()
-
-        print(cartesian_positions[-1])
-        # plt.plot(cartesian_positions)
+        # plt.savefig(os.path.join(data_dir, tr_name+'_eef_v.png'), bbox_inches='tight', dpi=300)
+        # plt.close()
+        #
+        # plt.plot(dps)
         # plt.legend(legends)
         # plt.xlabel('Horizon')
         # plt.ylabel('Pose')
         # plt.title('End-effector pose')
-        # plt.show()
-
+        # plt.savefig(os.path.join(data_dir, tr_name+'_eef_pose.png'), bbox_inches='tight', dpi=300)
+        # plt.close()
+        #
         # plt.plot(time_frames)
         # plt.xlabel('Horizon')
         # plt.ylabel('Timestamps')
         # plt.title('Trajectory timestamps')
-        # plt.show()
+        # plt.savefig(os.path.join(data_dir, tr_name+'_timestamps.png'), bbox_inches='tight', dpi=300)
+        # print('Time frames: {}'.format(time_frames[-1]))
+        # plt.close()
         #
         # plt.plot(time_difference)
         # plt.xlabel('Horizon')
         # plt.ylabel('Time difference')
         # plt.title('Trajectory waypoint time difference')
-        # plt.show()
+        # plt.savefig(os.path.join(data_dir, tr_name+'_time_diff.png'), bbox_inches='tight', dpi=300)
+        # plt.close()
+
+        if save:
+            n = 0
+            while os.path.exists(os.path.join(data_dir, tr_name+'_v_'+str(n)+'.npy')):
+                n += 1
+            np.save(os.path.join(data_dir, tr_name+'_v_'+str(n)+'.npy'), np.array(cartesian_velocities))
+            np.save(os.path.join(data_dir, tr_name+'_timestamps_'+str(n)+'.npy'), np.array(time_frames))
 
 
 if __name__ == '__main__':
