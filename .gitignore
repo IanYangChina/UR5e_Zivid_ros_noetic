@@ -5,3 +5,4 @@
 /logs
 /.catkin_workspace
 /.catkin_tools
+src/soil_manipulation/src/utils/__pycache__
