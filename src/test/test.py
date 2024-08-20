@@ -1,3 +1,19 @@
+import os
 import numpy as np
+import matplotlib.pyplot as plt
 
-print(np.rad2deg([1.7483037153827112, -1.9304458103575648, -0.08308917680849248, -1.9980789623656214, -1.3646295706378382, 0.9977572560310364]))
+script_path = os.path.dirname(os.path.realpath(__file__))
+data_path = os.path.join(script_path, '..', 'soil_manipulation', 'src', 'moveit_trajectories')
+
+task_id = 1
+for n in range(4):
+    timestamps = np.load(os.path.join(data_path, f'sys_id_{task_id}_timestamps_{n}.npy'))
+    v = np.load(os.path.join(data_path, f'sys_id_{task_id}_v_{n}.npy'))
+    fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+    ax[0].plot(timestamps)
+    ax[0].set_title(f'Last timestamp: {timestamps[-1]}')
+    ax[1].plot(v)
+    ax[1].legend(['x', 'y', 'z', 'a', 'b', 'c'])
+    plt.tight_layout()
+    plt.show()
+    plt.close()
