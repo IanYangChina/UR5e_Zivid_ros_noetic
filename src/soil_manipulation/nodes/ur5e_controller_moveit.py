@@ -67,8 +67,9 @@ class Controller:
         rospy.loginfo("Initializing robot...")
         # plan = self.moveit_group.plan(joints=waiting_joint_state.position)
         # self.moveit_group.execute(plan[1], wait=True)
-        plan = self.moveit_group.plan(joints=waiting_joint_state.position)
-        self.moveit_group.execute(plan[1], wait=True)
+        #plan = self.moveit_group.plan(joints=waiting_joint_state.position)
+        #self.moveit_group.execute(plan[1], wait=True)
+        pass
 
     def pre_manipulation(self, req):
         plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
@@ -442,8 +443,8 @@ class Controller:
     def plan_and_execute(self, waypoints):
         (plan, fraction) = self.moveit_group.compute_cartesian_path(
                                    waypoints,   # waypoints to follow
-                                   self.delta_position,      # eef_step
-                                   0.0)         # jump_threshold
+                                   self.delta_position)      # eef_step
+                                   #0.0)         # jump_threshold
         # moveit sometimes uses the same time value for the last two trajectory points, causing failure execution
         if plan.joint_trajectory.points[-2].time_from_start.nsecs == plan.joint_trajectory.points[-1].time_from_start.nsecs:
             plan.joint_trajectory.points[-1].time_from_start.nsecs += 10000
@@ -454,10 +455,11 @@ class Controller:
         rospy.loginfo("Time spent: "+str(dt)+" secs")
 
     def plan_and_show(self, waypoints, show=False, save_tr=False, tr_name='tr'):
+        print(waypoints)
         (plan, fraction) = self.moveit_group.compute_cartesian_path(
                                    waypoints,   # waypoints to follow
-                                   self.delta_position,      # eef_step
-                                   0.0)         # jump_threshold
+                                   self.delta_position)      # eef_step
+                                   #0.0)         # jump_threshold
 
         # moveit sometimes uses the same time value for the last two trajectory points, causing failure execution
         if plan.joint_trajectory.points[-2].time_from_start.nsecs == plan.joint_trajectory.points[-1].time_from_start.nsecs:
