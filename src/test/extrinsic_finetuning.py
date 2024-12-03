@@ -38,7 +38,7 @@ data_path = os.path.join(script_path, '..', 'soil_manipulation', 'src')
 # Load the camera extrinsics
 with open(os.path.join(data_path, 'extrinsics.yml'), 'r') as f:
     cam_extrinsics = yaml.load(f, Loader=yaml.FullLoader)
-transform_world_to_cam = cam_extrinsics['matrix']
+transform_world_to_cam = np.load(os.path.join(data_path, 'cam_extrinsics_fine_tuned.npy'))
 transform_cam_to_world = np.linalg.inv(transform_world_to_cam)
 
 # Create a plane
@@ -51,7 +51,7 @@ cam_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[
 cam_frame.transform(transform_world_to_cam)
 
 # Load PCD
-pcd = o3d.io.read_point_cloud(os.path.join(data_path, 'pcds', 'pcd_0.ply'))
+pcd = o3d.io.read_point_cloud(os.path.join(data_path, 'pcds', 'pcd_0_multi_skill.ply'))
 pcd_in_world_frame = pcd.transform(transform_world_to_cam)
 
 # Visualize

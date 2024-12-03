@@ -65,10 +65,8 @@ class Controller:
 
     def init_robot(self):
         rospy.loginfo("Initializing robot...")
-        # plan = self.moveit_group.plan(joints=waiting_joint_state.position)
-        # self.moveit_group.execute(plan[1], wait=True)
-        #plan = self.moveit_group.plan(joints=waiting_joint_state.position)
-        #self.moveit_group.execute(plan[1], wait=True)
+        plan = self.moveit_group.plan(joints=waiting_joint_state.position)
+        self.moveit_group.execute(plan[1], wait=True)
         pass
 
     def pre_manipulation(self, req):
@@ -189,8 +187,8 @@ class Controller:
             w2.position.x -= 0.12
             w3 = copy.deepcopy(w2)
             w3.position.z += 0.12
-            # self.plan_and_execute([p, w0, w1, w2, w3])
-            self.plan_and_show([p, w0, w1, w2, w3], save_tr=True, tr_name='sys_id_1')
+            self.plan_and_execute([p, w0, w1, w2, w3])
+            # self.plan_and_show([p, w0, w1, w2, w3], save_tr=False, tr_name='sys_id_1')
         elif task_ind == -2:
             # system identification motion 2
             p = self.moveit_group.get_current_pose().pose
@@ -213,8 +211,8 @@ class Controller:
             w2.position.y -= 0.12
             w3 = copy.deepcopy(w2)
             w3.position.z += 0.12
-            # self.plan_and_execute([p, w0, w1, w2, w3])
-            self.plan_and_show([p, w0, w1, w2, w3], save_tr=True, tr_name='sys_id_2')
+            self.plan_and_execute([p, w0, w1, w2, w3])
+            # self.plan_and_show([p, w0, w1, w2, w3], save_tr=False, tr_name='sys_id_2')
         elif task_ind == 0:
             p = self.moveit_group.get_current_pose().pose
             w0 = copy.deepcopy(p)
@@ -502,7 +500,7 @@ class Controller:
 
     def plot_eef_v(self, plan, save=False, tr_name='tr'):
         script_dir = os.path.dirname(__file__)
-        data_dir = os.path.join(script_dir, '..', 'src', 'cartesian_velocities')
+        data_dir = os.path.join(script_dir, '..', 'src', 'moveit_trajectories')
         cartesian_positions = []
         cartesian_velocities = []
         time_frames = []
