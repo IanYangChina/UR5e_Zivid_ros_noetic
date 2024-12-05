@@ -32,7 +32,7 @@ class Sample:
         raw_cam_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.2)
         o3d.visualization.draw_geometries([raw_cam_frame, pcd_raw])
         os.makedirs(os.path.join(script_path, '..', 'src', 'pcds'), exist_ok=True)
-        path_to_save_pcd = os.path.join(script_path, '..', 'src', 'pcds', 'pcd_0_multi_skill.ply')
+        path_to_save_pcd = os.path.join(script_path, '..', 'src', 'pcds', 'pcd_0.ply')
         i = 0
         while True:
             if os.path.exists(path_to_save_pcd):

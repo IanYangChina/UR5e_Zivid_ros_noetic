@@ -51,7 +51,7 @@ cam_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[
 cam_frame.transform(transform_world_to_cam)
 
 # Load PCD
-pcd = o3d.io.read_point_cloud(os.path.join(data_path, 'pcds', 'pcd_0_multi_skill.ply'))
+pcd = o3d.io.read_point_cloud(os.path.join(data_path, 'pcds', 'pcd_0.ply'))
 pcd_in_world_frame = pcd.transform(transform_world_to_cam)
 
 # Visualize
