@@ -28,6 +28,75 @@ def qmul(q, r):
     out = np.array([w, x, y, z])
     return out / np.sqrt(out.dot(out))
 
+def w2quat(axis_angle):
+    axis_angle = np.asarray(axis_angle)
+    w = np.sqrt(np.sum(axis_angle**2))
+    print(w)
+    out = np.zeros(shape=(4,))
+
+    v = (axis_angle / w) * np.sin(w / 2)
+    out[0] = np.cos(w / 2)
+    out[1] = v[0]
+    out[2] = v[1]
+    out[3] = v[2]
+
+    return out
+
+
+def get_skill_waypoints(p, skill_params):
+    # todo: not quite right
+    waypoints = [copy.deepcopy(p)]
+    p_ = copy.deepcopy(p)
+    move_distance = skill_params[0] * 0.12  # map [-1, 1] to [-0.12, 0.12]
+    p_.position.x += move_distance
+    rotate_x = skill_params[1] * (np.pi / 3)  # map [-1, 1] to [-pi/3, pi/3]
+    tar_quat = qmul([p.orientation.w, p.orientation.x, p.orientation.y, p.orientation.z],
+                    w2quat([rotate_x, 0.0, 0.0]))
+    p_.orientation.w = tar_quat[0]
+    p_.orientation.x = tar_quat[1]
+    p_.orientation.y = tar_quat[2]
+    p_.orientation.z = tar_quat[3]
+    waypoints.append(copy.deepcopy(p_))
+
+    insert_angle = rotate_x + np.pi / 2
+    insert_distance = (skill_params[2] + 1) / 2 * 0.06  # map [-1, 1] to [0, 0.06]
+    insert_distance_x = insert_distance * np.cos(insert_angle)
+    insert_distance_z = insert_distance * np.sin(insert_angle)
+    insert_distance_z = max(insert_distance_z, -0.059)
+    p__ = copy.deepcopy(p_)
+    p__.position.x -= insert_distance_x
+    p__.position.z -= insert_distance_z
+    waypoints.append(copy.deepcopy(p__))
+
+    push_angle = (skill_params[3] + 3) * np.pi / 3  # map [-1, 1] to [2*pi/3, 4*pi/3]
+    push_distance = (skill_params[4] + 1) * 0.1 + 0.04  # map [-1, 1] to [0.04, 0.24]
+    push_distance_x = push_distance * np.cos(push_angle)
+    push_distance_x = min(0.13 - move_distance - push_distance_x, push_distance_x)
+    push_distance_z = push_distance * np.sin(push_angle)
+    push_distance_z = max(push_distance_z, -0.059)
+    p___ = copy.deepcopy(p__)
+    p___.position.x += push_distance_x
+    p___.position.z += push_distance_z
+    waypoints.append(copy.deepcopy(p___))
+
+    rotate_x_back = -rotate_x
+    quat_xyzw_z = Rotation.from_euler('xyz', np.array([rotate_x_back, 0.0, 0.0]),
+                                      degrees=False).as_quat()
+    quat_wxyz_z = [quat_xyzw_z[-1], quat_xyzw_z[0], quat_xyzw_z[1], quat_xyzw_z[2]]
+    tar_quat = qmul([p___.orientation.w, p___.orientation.x, p___.orientation.y, p___.orientation.z], quat_wxyz_z)
+    p____ = copy.deepcopy(p___)
+    p____.orientation.w = tar_quat[0]
+    p____.orientation.x = tar_quat[1]
+    p____.orientation.y = tar_quat[2]
+    p____.orientation.z = tar_quat[3]
+    waypoints.append(copy.deepcopy(p____))
+
+    move_up_distance = 0.1
+    p_____ = copy.deepcopy(p____)
+    p_____.position.z += move_up_distance
+    waypoints.append(copy.deepcopy(p_____))
+    return waypoints
+
 
 class Controller:
     def __init__(self, translation_speed=0.05, rotation_speed=10):
@@ -213,169 +282,16 @@ class Controller:
             w3.position.z += 0.12
             self.plan_and_execute([p, w0, w1, w2, w3])
             # self.plan_and_show([p, w0, w1, w2, w3], save_tr=False, tr_name='sys_id_2')
-        elif task_ind == 0:
-            p = self.moveit_group.get_current_pose().pose
-            w0 = copy.deepcopy(p)
-            w0.position.x += 0.09
-            w0.position.y += 0.09
-            w1 = copy.deepcopy(w0)
-            w1.position.z -= 0.03
-            w2 = copy.deepcopy(w1)
-            w2.position.x -= 0.15
-            w3 = copy.deepcopy(w2)
-            quat_xyzw = Rotation.from_euler('xyz', np.array([0.0, 0.0, -90]),
-                                            degrees=True).as_quat()
-            quat_wxyz = [quat_xyzw[-1], quat_xyzw[0], quat_xyzw[1], quat_xyzw[2]]
-            tar_quat = qmul([w2.orientation.w, w2.orientation.x, w2.orientation.y, w2.orientation.z], quat_wxyz)
-            w3.orientation.w = tar_quat[0]
-            w3.orientation.x = tar_quat[1]
-            w3.orientation.y = tar_quat[2]
-            w3.orientation.z = tar_quat[3]
-            w4 = copy.deepcopy(w3)
-            w4.position.y -= 0.15
-            w5 = copy.deepcopy(w4)
-            w5.position.z += 0.12
-            self.plan_and_execute([p, w0, w1, w2, w3, w4, w5])
-        elif task_ind == 1:
-            p = self.moveit_group.get_current_pose().pose
-            self.plan_and_execute(self.get_skill_waypoints(p, 0, [0, 0.11], degree=True))
-            p = self.moveit_group.get_current_pose().pose
-            self.plan_and_execute(self.get_skill_waypoints(p, 3, [-30, 0], degree=True))
-            p = self.moveit_group.get_current_pose().pose
-            self.plan_and_execute(self.get_skill_waypoints(p, 1, [120, 0.07], degree=True))
-            p = self.moveit_group.get_current_pose().pose
-            self.plan_and_execute(self.get_skill_waypoints(p, 0, [0, -0.1], degree=True))
-            p = self.moveit_group.get_current_pose().pose
-            self.plan_and_execute(self.get_skill_waypoints(p, 2, [60, 0.1], degree=True))
-        elif task_ind == 2:
-            p = self.moveit_group.get_current_pose().pose
-            self.plan_and_execute(self.get_skill_waypoints(p, 0, [45, 0.12], degree=True))
-            p = self.moveit_group.get_current_pose().pose
-            self.plan_and_execute(self.get_skill_waypoints(p, 3, [0, -45], degree=True))
-            p = self.moveit_group.get_current_pose().pose
-            self.plan_and_execute(self.get_skill_waypoints(p, 1, [90, 0.02], degree=True))
-            p = self.moveit_group.get_current_pose().pose
-            self.plan_and_execute(self.get_skill_waypoints(p, 0, [45, -0.24], degree=True))
-            p = self.moveit_group.get_current_pose().pose
-            self.plan_and_execute(self.get_skill_waypoints(p, 2, [90, 0.02], degree=True))
-            p = self.moveit_group.get_current_pose().pose
-            self.plan_and_execute(self.get_skill_waypoints(p, 3, [0, -90], degree=True))
-            p = self.moveit_group.get_current_pose().pose
-            self.plan_and_execute(self.get_skill_waypoints(p, 0, [90, 0.15], degree=True))
-            p = self.moveit_group.get_current_pose().pose
-            self.plan_and_execute(self.get_skill_waypoints(p, 1, [90, 0.02], degree=True))
-            p = self.moveit_group.get_current_pose().pose
-            self.plan_and_execute(self.get_skill_waypoints(p, 0, [135, -0.24], degree=True))
-            p = self.moveit_group.get_current_pose().pose
-            self.plan_and_execute(self.get_skill_waypoints(p, 2, [90, 0.02], degree=True))
 
         plan = self.moveit_group.plan(joints=waiting_joint_state.position)
         self.moveit_group.execute(plan[1], wait=True)
         return TaskResponse()
 
     def execute_skill(self, req):
-        skill_ind = req.n
-        p1 = req.p1
-        p2 = req.p2
         p = self.moveit_group.get_current_pose().pose
-        waypoints = self.get_skill_waypoints(p, skill_ind, [p1, p2], degree=True)
+        waypoints = get_skill_waypoints(p, [req.p1, req.p2, req.p3, req.p4, req.p5])
         self.plan_and_execute(waypoints)
         return SkillResponse()
-
-    def get_skill_waypoints(self, p, skill_ind, params, degree=False):
-        if skill_ind == 0:
-            # planar movement
-            move_angle = params[0]
-            if degree:
-                move_angle = np.radians(move_angle)
-            np.clip(move_angle, 0, 2 * np.pi)
-            move_distance = params[1]
-            np.clip(move_distance, -0.05, 0.05)
-
-            move_distance_x = move_distance * np.cos(move_angle)
-            move_distance_y = move_distance * np.sin(move_angle)
-            p_ = copy.deepcopy(p)
-            p_.position.x += move_distance_x
-            p_.position.y += move_distance_y
-            return [p, p_]
-        elif skill_ind == 1:
-            # insertion
-            insert_angle = params[0]
-            if degree:
-                insert_angle = np.radians(insert_angle)
-            np.clip(insert_angle, 0, np.pi)
-            insert_distance = params[1]
-            np.clip(insert_distance, 0, 0.05)
-
-            insert_distance_x = insert_distance * np.cos(insert_angle)
-            insert_distance_z = np.abs(insert_distance * np.sin(insert_angle))
-            p_ = copy.deepcopy(p)
-            p_.position.x += insert_distance_x
-            p_.position.z += insert_distance_z * -1
-            return [p, p_]
-        elif skill_ind == 2:
-            # pullout
-            pullout_angle = params[0]
-            if degree:
-                pullout_angle = np.radians(pullout_angle)
-            np.clip(pullout_angle, 0, np.pi)
-            pullout_distance = params[1]
-            np.clip(pullout_distance, 0, 0.1)
-
-            pullout_distance_x = pullout_distance * np.cos(pullout_angle)
-            pullout_distance_z = np.abs(pullout_distance * np.sin(pullout_angle))
-            p_ = copy.deepcopy(p)
-            p_.position.x += pullout_distance_x
-            p_.position.z += pullout_distance_z
-            return [p, p_]
-        elif skill_ind == 3:
-            # rotate about x and z
-            rotate_angle_x = params[0]
-            if degree:
-                rotate_angle_x = np.radians(rotate_angle_x)
-            np.clip(rotate_angle_x, -np.pi/2, np.pi/2)
-
-            rotate_angle_z = params[1]
-            if degree:
-                rotate_angle_z = np.radians(rotate_angle_z)
-            np.clip(rotate_angle_z, -np.pi/2, np.pi/2)
-
-            if rotate_angle_x != 0:
-                p_ = copy.deepcopy(p)
-                quat_xyzw_z = Rotation.from_euler('xyz', np.array([rotate_angle_x, 0.0, 0.0]),
-                                                degrees=False).as_quat()
-                quat_wxyz_z = [quat_xyzw_z[-1], quat_xyzw_z[0], quat_xyzw_z[1], quat_xyzw_z[2]]
-                tar_quat = qmul([p.orientation.w, p.orientation.x, p.orientation.y, p.orientation.z], quat_wxyz_z)
-                p_.orientation.w = tar_quat[0]
-                p_.orientation.x = tar_quat[1]
-                p_.orientation.y = tar_quat[2]
-                p_.orientation.z = tar_quat[3]
-                if rotate_angle_z != 0:
-                    p__ = copy.deepcopy(p_)
-                    quat_xyzw_x = Rotation.from_euler('xyz', np.array([0.0, 0.0, rotate_angle_z]),
-                                                    degrees=False).as_quat()
-                    quat_wxyz_x = [quat_xyzw_x[-1], quat_xyzw_x[0], quat_xyzw_x[1], quat_xyzw_x[2]]
-                    tar_quat = qmul([p_.orientation.w, p_.orientation.x, p_.orientation.y, p_.orientation.z], quat_wxyz_x)
-                    p__.orientation.w = tar_quat[0]
-                    p__.orientation.x = tar_quat[1]
-                    p__.orientation.y = tar_quat[2]
-                    p__.orientation.z = tar_quat[3]
-                    return [p, p_, p__]
-                else:
-                    return [p, p_]
-            else:
-                p_ = copy.deepcopy(p)
-                quat_xyzw_z = Rotation.from_euler('xyz', np.array([0.0, 0.0, rotate_angle_z]),
-                                                degrees=False).as_quat()
-                quat_wxyz_z = [quat_xyzw_z[-1], quat_xyzw_z[0], quat_xyzw_z[1], quat_xyzw_z[2]]
-                tar_quat = qmul([p.orientation.w, p.orientation.x, p.orientation.y, p.orientation.z], quat_wxyz_z)
-                p_.orientation.w = tar_quat[0]
-                p_.orientation.x = tar_quat[1]
-                p_.orientation.y = tar_quat[2]
-                p_.orientation.z = tar_quat[3]
-                return [p, p_]
-        else:
-            raise ValueError("Invalid skill index.")
 
     def compose_cartesian_waypoints(self, pose0, pose1):
         # todo: quat to euler is problematic
