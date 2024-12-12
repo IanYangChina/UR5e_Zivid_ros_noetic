@@ -31,7 +31,6 @@ def qmul(q, r):
 def w2quat(axis_angle):
     axis_angle = np.asarray(axis_angle)
     w = np.sqrt(np.sum(axis_angle**2))
-    print(w)
     out = np.zeros(shape=(4,))
 
     v = (axis_angle / w) * np.sin(w / 2)
@@ -44,14 +43,16 @@ def w2quat(axis_angle):
 
 
 def get_skill_waypoints(p, skill_params):
-    # todo: not quite right
     waypoints = [copy.deepcopy(p)]
     p_ = copy.deepcopy(p)
     move_distance = skill_params[0] * 0.12  # map [-1, 1] to [-0.12, 0.12]
     p_.position.x += move_distance
-    rotate_x = skill_params[1] * (np.pi / 3)  # map [-1, 1] to [-pi/3, pi/3]
-    tar_quat = qmul([p.orientation.w, p.orientation.x, p.orientation.y, p.orientation.z],
-                    w2quat([rotate_x, 0.0, 0.0]))
+    rotate_x = -skill_params[1] * (np.pi / 3)  # map [-1, 1] to [-pi/3, pi/3]
+    delta_quat = Rotation.from_euler('xyz', np.array([rotate_x, 0.0, 0.0]),
+                                   degrees=False).as_quat()
+    delta_quat_wxyz = [delta_quat[-1], delta_quat[0], delta_quat[1], delta_quat[2]]
+    tar_quat = qmul([p_.orientation.w, p_.orientation.x, p_.orientation.y, p_.orientation.z],
+                    delta_quat_wxyz)
     p_.orientation.w = tar_quat[0]
     p_.orientation.x = tar_quat[1]
     p_.orientation.y = tar_quat[2]
@@ -62,7 +63,7 @@ def get_skill_waypoints(p, skill_params):
     insert_distance = (skill_params[2] + 1) / 2 * 0.06  # map [-1, 1] to [0, 0.06]
     insert_distance_x = insert_distance * np.cos(insert_angle)
     insert_distance_z = insert_distance * np.sin(insert_angle)
-    insert_distance_z = max(insert_distance_z, -0.059)
+    insert_distance_z = min(insert_distance_z, 0.055)
     p__ = copy.deepcopy(p_)
     p__.position.x -= insert_distance_x
     p__.position.z -= insert_distance_z
@@ -71,30 +72,30 @@ def get_skill_waypoints(p, skill_params):
     push_angle = (skill_params[3] + 3) * np.pi / 3  # map [-1, 1] to [2*pi/3, 4*pi/3]
     push_distance = (skill_params[4] + 1) * 0.1 + 0.04  # map [-1, 1] to [0.04, 0.24]
     push_distance_x = push_distance * np.cos(push_angle)
-    push_distance_x = min(0.13 - move_distance - push_distance_x, push_distance_x)
+    push_distance_x = min(max(-(0.13 - np.abs(0.12*np.sin(rotate_x)) - insert_distance_x + move_distance),
+                          push_distance_x),  0.0)
     push_distance_z = push_distance * np.sin(push_angle)
-    push_distance_z = max(push_distance_z, -0.059)
+    push_distance_z = max(push_distance_z, -0.055+insert_distance_z)
     p___ = copy.deepcopy(p__)
     p___.position.x += push_distance_x
     p___.position.z += push_distance_z
     waypoints.append(copy.deepcopy(p___))
 
     rotate_x_back = -rotate_x
-    quat_xyzw_z = Rotation.from_euler('xyz', np.array([rotate_x_back, 0.0, 0.0]),
+    delta_quat = Rotation.from_euler('xyz', np.array([rotate_x_back, 0.0, 0.0]),
                                       degrees=False).as_quat()
-    quat_wxyz_z = [quat_xyzw_z[-1], quat_xyzw_z[0], quat_xyzw_z[1], quat_xyzw_z[2]]
-    tar_quat = qmul([p___.orientation.w, p___.orientation.x, p___.orientation.y, p___.orientation.z], quat_wxyz_z)
+    delta_quat_wxyz = [delta_quat[-1], delta_quat[0], delta_quat[1], delta_quat[2]]
+    tar_quat = qmul([p___.orientation.w, p___.orientation.x, p___.orientation.y, p___.orientation.z],
+                    delta_quat_wxyz)
     p____ = copy.deepcopy(p___)
     p____.orientation.w = tar_quat[0]
     p____.orientation.x = tar_quat[1]
     p____.orientation.y = tar_quat[2]
     p____.orientation.z = tar_quat[3]
-    waypoints.append(copy.deepcopy(p____))
 
     move_up_distance = 0.1
-    p_____ = copy.deepcopy(p____)
-    p_____.position.z += move_up_distance
-    waypoints.append(copy.deepcopy(p_____))
+    p____.position.z += move_up_distance
+    waypoints.append(copy.deepcopy(p____))
     return waypoints
 
 
@@ -288,9 +289,17 @@ class Controller:
         return TaskResponse()
 
     def execute_skill(self, req):
+        plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
+        self.moveit_group.execute(plan[1], wait=True)
+        rospy.sleep(1.0)
+
         p = self.moveit_group.get_current_pose().pose
         waypoints = get_skill_waypoints(p, [req.p1, req.p2, req.p3, req.p4, req.p5])
         self.plan_and_execute(waypoints)
+
+        plan = self.moveit_group.plan(joints=waiting_joint_state.position)
+        self.moveit_group.execute(plan[1], wait=True)
+
         return SkillResponse()
 
     def compose_cartesian_waypoints(self, pose0, pose1):
@@ -360,10 +369,11 @@ class Controller:
                                    self.delta_position)      # eef_step
                                    #0.0)         # jump_threshold
         # moveit sometimes uses the same time value for the last two trajectory points, causing failure execution
-        if plan.joint_trajectory.points[-2].time_from_start.nsecs == plan.joint_trajectory.points[-1].time_from_start.nsecs:
-            plan.joint_trajectory.points[-1].time_from_start.nsecs += 10000
-        # print(plan)
-        # self.plot_eef_v(plan)
+        for n in range(len(plan.joint_trajectory.points)):
+            if n > 0 and plan.joint_trajectory.points[n].time_from_start.secs == plan.joint_trajectory.points[n-1].time_from_start.secs:
+                while plan.joint_trajectory.points[n].time_from_start.nsecs <= plan.joint_trajectory.points[n-1].time_from_start.nsecs:
+                    plan.joint_trajectory.points[n].time_from_start.nsecs += 10000
+
         self.moveit_group.execute(plan, wait=True)
         dt = plan.joint_trajectory.points[-1].time_from_start.secs + plan.joint_trajectory.points[-1].time_from_start.nsecs / 1e9
         rospy.loginfo("Time spent: "+str(dt)+" secs")
