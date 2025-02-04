@@ -346,7 +346,30 @@ class Controller:
             w3 = copy.deepcopy(w2)
             w3.position.z += 0.12
             self.plan_and_execute([p, w0, w1, w2, w3])
-            # self.plan_and_show([p, w0, w1, w2, w3], save_tr=False, tr_name='sys_id_2')
+        elif task_ind == -3:
+            # system identification motion 2
+            p = self.moveit_group.get_current_pose().pose
+            w0 = copy.deepcopy(p)
+            w0.position.x += 0.10
+            w0.position.y += 0.10
+            quat_xyzw = Rotation.from_euler('xyz', np.array([0.0, 0.0, -45]),
+                                            degrees=True).as_quat()
+            quat_wxyz = [quat_xyzw[-1], quat_xyzw[0], quat_xyzw[1], quat_xyzw[2]]
+            tar_quat = qmul([w0.orientation.w, w0.orientation.x, w0.orientation.y, w0.orientation.z],
+                            quat_wxyz)
+            w0.orientation.w = tar_quat[0]
+            w0.orientation.x = tar_quat[1]
+            w0.orientation.y = tar_quat[2]
+            w0.orientation.z = tar_quat[3]
+            w1 = copy.deepcopy(w0)
+            w1.position.z -= 0.04
+            w2 = copy.deepcopy(w1)
+            w2.position.x -= 0.15
+            w2.position.y -= 0.15
+            w3 = copy.deepcopy(w2)
+            w3.position.z += 0.12
+            self.plan_and_execute([p, w0, w1, w2, w3])
+            # self.plan_and_show([p, w0, w1, w2, w3], save_tr=True, tr_name='sys_id_3')
 
         plan = self.moveit_group.plan(joints=waiting_joint_state.position)
         self.moveit_group.execute(plan[1], wait=True)
