@@ -46,9 +46,9 @@ def get_skill_waypoints(p, skill_params, skill='dig'):
     waypoints = [copy.deepcopy(p)]
     if skill == 'dig':
         p_ = copy.deepcopy(p)
-        move_distance = skill_params[0] * 0.12  # map [-1, 1] to [-0.12, 0.12]
+        move_distance = (skill_params[0] + 1 / 3) * 0.18
         p_.position.x += move_distance
-        rotate_x = -skill_params[1] * (np.pi / 3)  # map [-1, 1] to [-pi/3, pi/3]
+        rotate_x = (skill_params[1] + 1 / 3) * (np.pi * 3 / 16)
         delta_quat = Rotation.from_euler('xyz', np.array([rotate_x, 0.0, 0.0]),
                                        degrees=False).as_quat()
         delta_quat_wxyz = [delta_quat[-1], delta_quat[0], delta_quat[1], delta_quat[2]]
@@ -61,7 +61,7 @@ def get_skill_waypoints(p, skill_params, skill='dig'):
         waypoints.append(copy.deepcopy(p_))
 
         insert_angle = rotate_x + np.pi / 2
-        insert_distance = (skill_params[2] + 1) / 2 * 0.06  # map [-1, 1] to [0, 0.06]
+        insert_distance = (skill_params[2] + 1) / 2 * 0.05  # map [-1, 1] to [0, 0.05]
         insert_distance_x = insert_distance * np.cos(insert_angle)
         insert_distance_z = insert_distance * np.sin(insert_angle)
         insert_distance_z = min(insert_distance_z, 0.055)
@@ -71,7 +71,7 @@ def get_skill_waypoints(p, skill_params, skill='dig'):
         waypoints.append(copy.deepcopy(p__))
 
         push_angle = (skill_params[3] + 3) * np.pi / 3  # map [-1, 1] to [2*pi/3, 4*pi/3]
-        push_distance = (skill_params[4] + 1) * 0.1 + 0.04  # map [-1, 1] to [0.04, 0.24]
+        push_distance = skill_params[4] * 0.18 + 0.22  # map [-1, 1] to [0.04, 0.40]
         push_distance_x = push_distance * np.cos(push_angle)
         push_distance_x = min(max(-(0.13 - np.abs(0.12*np.sin(rotate_x)) - insert_distance_x + move_distance),
                               push_distance_x),  0.0)
@@ -181,7 +181,7 @@ class Controller:
         self.delta_position = 0.005  # meter per waypoint
         self.delta_angle = 5  # angle per waypoint
 
-        self.init_robot()
+        # self.init_robot()
         rospy.Subscriber('/joint_states', JointState, self.current_pose_callback)
 
         self.print_pose_service = rospy.Service('print_pose', PrintPose, self.print_pose)
@@ -376,14 +376,16 @@ class Controller:
         return TaskResponse()
 
     def execute_skill(self, req):
-        plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
-        self.moveit_group.execute(plan[1], wait=True)
-        rospy.sleep(1.0)
+        # plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
+        # self.moveit_group.execute(plan[1], wait=True)
+        # rospy.sleep(1.0)
 
         p = self.moveit_group.get_current_pose().pose
         # waypoints = get_skill_waypoints(p, [req.p1, req.p2, req.p3, req.p4, req.p5])
-        waypoints_transfer = get_skill_waypoints(p, [1.0, 0.8, 0.7, 0.4, -0.3], skill='transfer')
-        self.plan_and_execute(waypoints_transfer)
+        # waypoints_transfer = get_skill_waypoints(p, [1.0, 0.8, 0.7, 0.4, -0.3], skill='transfer')
+        waypoints_dig = get_skill_waypoints(
+            p, [0.24303342, -0.09475144, 0.00259957, -0.29466704, 0.07773928], skill='dig')
+        self.plan_and_execute(waypoints_dig)
 
         # plan = self.moveit_group.plan(joints=waiting_joint_state.position)
         # self.moveit_group.execute(plan[1], wait=True)
