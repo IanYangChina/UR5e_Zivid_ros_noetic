@@ -76,7 +76,7 @@ def get_skill_waypoints(p, skill_params, skill='dig'):
         push_distance_x = min(max(-(0.13 - np.abs(0.12*np.sin(rotate_x)) - insert_distance_x + move_distance),
                               push_distance_x),  0.0)
         push_distance_z = push_distance * np.sin(push_angle)
-        push_distance_z = max(push_distance_z, -0.055+insert_distance_z)
+        push_distance_z = max(push_distance_z, -0.05+insert_distance_z)
         p___ = copy.deepcopy(p__)
         p___.position.x += push_distance_x
         p___.position.z += push_distance_z
@@ -98,12 +98,10 @@ def get_skill_waypoints(p, skill_params, skill='dig'):
         p____.position.z += move_up_distance
         waypoints.append(copy.deepcopy(p____))
 
-    elif skill == 'transfer':
+    elif skill == 'smooth':
         p_ = copy.deepcopy(p)
-        move_distance = skill_params[0] * 0.35  # map [-1, 1] to [-0.12, 0.12]
-        p_.position.x += move_distance
-        rotate_x = -skill_params[1] * (np.pi / 3)  # map [-1, 1] to [-pi/3, pi/3]
-        delta_quat = Rotation.from_euler('xyz', np.array([rotate_x, 0.0, 0.0]),
+        rotate_x = skill_params[0] * (np.pi / 6) + (np.pi / 6)  # map [-1, 1] to [0, pi/3]
+        delta_quat = Rotation.from_euler('xyz', np.array([-rotate_x, 0.0, 0.0]),
                                          degrees=False).as_quat()
         delta_quat_wxyz = [delta_quat[-1], delta_quat[0], delta_quat[1], delta_quat[2]]
         tar_quat = qmul([p_.orientation.w, p_.orientation.x, p_.orientation.y, p_.orientation.z],
@@ -114,50 +112,24 @@ def get_skill_waypoints(p, skill_params, skill='dig'):
         p_.orientation.z = tar_quat[3]
         waypoints.append(copy.deepcopy(p_))
 
-        insert_angle = rotate_x + np.pi / 2
-        insert_distance = (skill_params[2] + 1) / 2 * 0.25  # map [-1, 1] to [0, 0.06]
-        insert_distance_x = insert_distance * np.cos(insert_angle)
-        insert_distance_z = insert_distance * np.sin(insert_angle)
-        insert_distance_z = min(insert_distance_z, 0.08)
+        move_distance = skill_params[1] * 0.12 - 0.12  # map [-1, 1] to [-0.24, 0]
         p__ = copy.deepcopy(p_)
-        p__.position.x -= insert_distance_x
-        p__.position.z -= insert_distance_z
+        p__.position.x += move_distance
         waypoints.append(copy.deepcopy(p__))
 
-        scoop_angle = -(skill_params[3] + 0.6) * (np.pi / 3)
-        delta_quat = Rotation.from_euler('xyz', np.array([scoop_angle, 0.0, 0.0]),
-                                         degrees=False).as_quat()
-        delta_quat_wxyz = [delta_quat[-1], delta_quat[0], delta_quat[1], delta_quat[2]]
-        tar_quat = qmul([p_.orientation.w, p_.orientation.x, p_.orientation.y, p_.orientation.z],
-                        delta_quat_wxyz)
+        descend_distance = 0.02 * skill_params[2] - 0.03
         p___ = copy.deepcopy(p__)
-        p___.orientation.w = tar_quat[0]
-        p___.orientation.x = tar_quat[1]
-        p___.orientation.y = tar_quat[2]
-        p___.orientation.z = tar_quat[3]
-        move_up_distance_1 = 0.05
-        p___.position.z += move_up_distance_1
-        p___.position.x -= 0.15
+        p___.position.z += descend_distance
         waypoints.append(copy.deepcopy(p___))
 
-        move_up_distance_2 = 0.1
-        move_x_distance_2 = skill_params[4] * 0.3
+        smooth_distance = skill_params[3] * 0.18 + 0.22  # map [-1, 1] to [0.04, 0.40]
         p____ = copy.deepcopy(p___)
-        p____.position.x += move_x_distance_2
-        p____.position.z += move_up_distance_2
+        p____.position.x += smooth_distance
         waypoints.append(copy.deepcopy(p____))
 
-        pour_angle = -(rotate_x + scoop_angle)
-        delta_quat = Rotation.from_euler('xyz', np.array([pour_angle, 0.0, 0.0]),
-                                         degrees=False).as_quat()
-        delta_quat_wxyz = [delta_quat[-1], delta_quat[0], delta_quat[1], delta_quat[2]]
-        tar_quat = qmul([p____.orientation.w, p____.orientation.x, p____.orientation.y, p____.orientation.z],
-                        delta_quat_wxyz)
+        move_up_distance = 0.1
         p_____ = copy.deepcopy(p____)
-        p_____.orientation.w = tar_quat[0]
-        p_____.orientation.x = tar_quat[1]
-        p_____.orientation.y = tar_quat[2]
-        p_____.orientation.z = tar_quat[3]
+        p_____.position.x += move_up_distance
         waypoints.append(copy.deepcopy(p_____))
 
     return waypoints
@@ -376,19 +348,50 @@ class Controller:
         return TaskResponse()
 
     def execute_skill(self, req):
-        # plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
-        # self.moveit_group.execute(plan[1], wait=True)
-        # rospy.sleep(1.0)
-
+        plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
+        self.moveit_group.execute(plan[1], wait=True)
+        rospy.sleep(1.0)
         p = self.moveit_group.get_current_pose().pose
-        # waypoints = get_skill_waypoints(p, [req.p1, req.p2, req.p3, req.p4, req.p5])
-        # waypoints_transfer = get_skill_waypoints(p, [1.0, 0.8, 0.7, 0.4, -0.3], skill='transfer')
-        waypoints_dig = get_skill_waypoints(
-            p, [0.24303342, -0.09475144, 0.00259957, -0.29466704, 0.07773928], skill='dig')
-        self.plan_and_execute(waypoints_dig)
+        waypoints_dig0 = get_skill_waypoints(p, [0.34867424, -0.19277918, -0.00096845, -0.12814793, -0.03206819], skill='dig')
+        self.plan_and_execute(waypoints_dig0)
+        rospy.sleep(1.0)
+        plan = self.moveit_group.plan(joints=waiting_joint_state.position)
+        self.moveit_group.execute(plan[1], wait=True)
+        input("Press Enter to continue...")
 
-        # plan = self.moveit_group.plan(joints=waiting_joint_state.position)
-        # self.moveit_group.execute(plan[1], wait=True)
+        plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
+        self.moveit_group.execute(plan[1], wait=True)
+        rospy.sleep(1.0)
+        waypoints_dig1 = get_skill_waypoints(p, [0.74840283, -0.00368124, 0.00075751, 0.3649089, 0.47189257], skill='dig')
+        self.plan_and_execute(waypoints_dig1)
+        rospy.sleep(1.0)
+        plan = self.moveit_group.plan(joints=waiting_joint_state.position)
+        self.moveit_group.execute(plan[1], wait=True)
+        input("Press Enter to continue...")
+
+        plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
+        self.moveit_group.execute(plan[1], wait=True)
+        rospy.sleep(1.0)
+        waypoints_dig2 = get_skill_waypoints(p, [0.50663837, -0.60888322, 0.04501462, -0.21178022, 0.13505678], skill='dig')
+        self.plan_and_execute(waypoints_dig2)
+        rospy.sleep(1.0)
+        plan = self.moveit_group.plan(joints=waiting_joint_state.position)
+        self.moveit_group.execute(plan[1], wait=True)
+        input("Press Enter to continue...")
+
+        plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
+        self.moveit_group.execute(plan[1], wait=True)
+        rospy.sleep(1.0)
+        waypoints_dig3 = get_skill_waypoints(p, [0.24303342, -0.09475144, 0.00259957, -0.29466704, 0.07773928], skill='dig')
+        self.plan_and_execute(waypoints_dig3)
+        rospy.sleep(1.0)
+        plan = self.moveit_group.plan(joints=waiting_joint_state.position)
+        self.moveit_group.execute(plan[1], wait=True)
+
+        waypoints_smooth0 = get_skill_waypoints(p, [6.3202399e-01, 7.6014292e-04, -7.9036134e-01, 1.0000000e+00], skill='smooth')
+        waypoints_smooth1 = get_skill_waypoints(p, [0.54956645, -0.04671443, -0.37464836, 1.], skill='smooth')
+        waypoints_smooth2 = get_skill_waypoints(p, [4.1230908e-01, 7.7734629e-05, 7.4184136e-03, 4.3179125e-01], skill='smooth')
+        waypoints_smooth3 = get_skill_waypoints(p, [6.3202399e-01, 7.6014292e-04, -7.9036134e-01, 1.0000000e+00], skill='smooth')
 
         return SkillResponse()
 
