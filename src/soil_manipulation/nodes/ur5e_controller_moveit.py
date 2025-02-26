@@ -49,7 +49,7 @@ def get_skill_waypoints(p, skill_params, skill='dig'):
         move_distance = (skill_params[0] + 1 / 3) * 0.18
         p_.position.x += move_distance
         rotate_x = (skill_params[1] + 1 / 3) * (np.pi * 3 / 16)
-        delta_quat = Rotation.from_euler('xyz', np.array([rotate_x, 0.0, 0.0]),
+        delta_quat = Rotation.from_euler('xyz', np.array([-rotate_x, 0.0, 0.0]),
                                        degrees=False).as_quat()
         delta_quat_wxyz = [delta_quat[-1], delta_quat[0], delta_quat[1], delta_quat[2]]
         tar_quat = qmul([p_.orientation.w, p_.orientation.x, p_.orientation.y, p_.orientation.z],
@@ -64,7 +64,7 @@ def get_skill_waypoints(p, skill_params, skill='dig'):
         insert_distance = (skill_params[2] + 1) / 2 * 0.05  # map [-1, 1] to [0, 0.05]
         insert_distance_x = insert_distance * np.cos(insert_angle)
         insert_distance_z = insert_distance * np.sin(insert_angle)
-        insert_distance_z = min(insert_distance_z, 0.055)
+        insert_distance_z = min(insert_distance_z, 0.035)
         p__ = copy.deepcopy(p_)
         p__.position.x -= insert_distance_x
         p__.position.z -= insert_distance_z
@@ -76,7 +76,7 @@ def get_skill_waypoints(p, skill_params, skill='dig'):
         push_distance_x = min(max(-(0.13 - np.abs(0.12*np.sin(rotate_x)) - insert_distance_x + move_distance),
                               push_distance_x),  0.0)
         push_distance_z = push_distance * np.sin(push_angle)
-        push_distance_z = max(push_distance_z, -0.05+insert_distance_z)
+        push_distance_z = max(push_distance_z, -0.035+insert_distance_z)
         p___ = copy.deepcopy(p__)
         p___.position.x += push_distance_x
         p___.position.z += push_distance_z
@@ -117,7 +117,7 @@ def get_skill_waypoints(p, skill_params, skill='dig'):
         p__.position.x += move_distance
         waypoints.append(copy.deepcopy(p__))
 
-        descend_distance = 0.02 * skill_params[2] - 0.03
+        descend_distance = 0.02 * skill_params[2] - 0.02
         p___ = copy.deepcopy(p__)
         p___.position.z += descend_distance
         waypoints.append(copy.deepcopy(p___))
@@ -348,6 +348,10 @@ class Controller:
         return TaskResponse()
 
     def execute_skill(self, req):
+        """Task 1"""
+        plan = self.moveit_group.plan(joints=pre_manipulation_joint_state0.position)
+        self.moveit_group.execute(plan[1], wait=True)
+        rospy.sleep(1.0)
         plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
         self.moveit_group.execute(plan[1], wait=True)
         rospy.sleep(1.0)
@@ -357,41 +361,107 @@ class Controller:
         rospy.sleep(1.0)
         plan = self.moveit_group.plan(joints=waiting_joint_state.position)
         self.moveit_group.execute(plan[1], wait=True)
-        input("Press Enter to continue...")
+        # input("Press Enter to continue to levelling...")
 
+        # plan = self.moveit_group.plan(joints=pre_manipulation_joint_state0.position)
+        # self.moveit_group.execute(plan[1], wait=True)
+        # rospy.sleep(1.0)
+        # plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
+        # self.moveit_group.execute(plan[1], wait=True)
+        # rospy.sleep(1.0)
+        # p = self.moveit_group.get_current_pose().pose
+        # waypoints_smooth0 = get_skill_waypoints(p, [4.5317930e-01, - 1.3837227e-04, - 2.2442706e-01, 4.7586241e-01], skill='smooth')
+        # self.plan_and_execute(waypoints_smooth0)
+        # rospy.sleep(1.0)
+        # plan = self.moveit_group.plan(joints=waiting_joint_state.position)
+        # self.moveit_group.execute(plan[1], wait=True)
+        input("Press Enter to continue to task 2...")
+
+        """Task 2"""
+        plan = self.moveit_group.plan(joints=pre_manipulation_joint_state0.position)
+        self.moveit_group.execute(plan[1], wait=True)
+        rospy.sleep(1.0)
         plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
         self.moveit_group.execute(plan[1], wait=True)
         rospy.sleep(1.0)
+        p = self.moveit_group.get_current_pose().pose
         waypoints_dig1 = get_skill_waypoints(p, [0.74840283, -0.00368124, 0.00075751, 0.3649089, 0.47189257], skill='dig')
         self.plan_and_execute(waypoints_dig1)
         rospy.sleep(1.0)
         plan = self.moveit_group.plan(joints=waiting_joint_state.position)
         self.moveit_group.execute(plan[1], wait=True)
-        input("Press Enter to continue...")
+        # input("Press Enter to continue to levelling...")
 
+        # plan = self.moveit_group.plan(joints=pre_manipulation_joint_state0.position)
+        # self.moveit_group.execute(plan[1], wait=True)
+        # rospy.sleep(1.0)
+        # plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
+        # self.moveit_group.execute(plan[1], wait=True)
+        # rospy.sleep(1.0)
+        # p = self.moveit_group.get_current_pose().pose
+        # waypoints_smooth1 = get_skill_waypoints(p, [4.7191954e-01, -6.9774227e-04, -3.6668968e-01, 1.0000000e+00], skill='smooth')
+        # self.plan_and_execute(waypoints_smooth1)
+        # rospy.sleep(1.0)
+        # plan = self.moveit_group.plan(joints=waiting_joint_state.position)
+        # self.moveit_group.execute(plan[1], wait=True)
+        input("Press Enter to continue to task 3...")
+
+        """Task 3"""
+        plan = self.moveit_group.plan(joints=pre_manipulation_joint_state0.position)
+        self.moveit_group.execute(plan[1], wait=True)
+        rospy.sleep(1.0)
         plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
         self.moveit_group.execute(plan[1], wait=True)
         rospy.sleep(1.0)
+        p = self.moveit_group.get_current_pose().pose
         waypoints_dig2 = get_skill_waypoints(p, [0.50663837, -0.60888322, 0.04501462, -0.21178022, 0.13505678], skill='dig')
         self.plan_and_execute(waypoints_dig2)
         rospy.sleep(1.0)
         plan = self.moveit_group.plan(joints=waiting_joint_state.position)
         self.moveit_group.execute(plan[1], wait=True)
-        input("Press Enter to continue...")
+        # input("Press Enter to continue to levelling...")
 
+        # plan = self.moveit_group.plan(joints=pre_manipulation_joint_state0.position)
+        # self.moveit_group.execute(plan[1], wait=True)
+        # rospy.sleep(1.0)
+        # plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
+        # self.moveit_group.execute(plan[1], wait=True)
+        # rospy.sleep(1.0)
+        # p = self.moveit_group.get_current_pose().pose
+        # waypoints_smooth2 = get_skill_waypoints(p, [4.1211900e-01, 8.5068357e-05, -4.7380134e-02, 4.3102279e-01], skill='smooth')
+        # self.plan_and_execute(waypoints_smooth2)
+        # rospy.sleep(1.0)
+        # plan = self.moveit_group.plan(joints=waiting_joint_state.position)
+        # self.moveit_group.execute(plan[1], wait=True)
+        input("Press Enter to continue to task 4...")
+
+        """Task 4"""
+        plan = self.moveit_group.plan(joints=pre_manipulation_joint_state0.position)
+        self.moveit_group.execute(plan[1], wait=True)
+        rospy.sleep(1.0)
         plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
         self.moveit_group.execute(plan[1], wait=True)
         rospy.sleep(1.0)
+        p = self.moveit_group.get_current_pose().pose
         waypoints_dig3 = get_skill_waypoints(p, [0.24303342, -0.09475144, 0.00259957, -0.29466704, 0.07773928], skill='dig')
         self.plan_and_execute(waypoints_dig3)
         rospy.sleep(1.0)
         plan = self.moveit_group.plan(joints=waiting_joint_state.position)
         self.moveit_group.execute(plan[1], wait=True)
+        # input("Press Enter to continue to levelling...")
 
-        waypoints_smooth0 = get_skill_waypoints(p, [6.3202399e-01, 7.6014292e-04, -7.9036134e-01, 1.0000000e+00], skill='smooth')
-        waypoints_smooth1 = get_skill_waypoints(p, [0.54956645, -0.04671443, -0.37464836, 1.], skill='smooth')
-        waypoints_smooth2 = get_skill_waypoints(p, [4.1230908e-01, 7.7734629e-05, 7.4184136e-03, 4.3179125e-01], skill='smooth')
-        waypoints_smooth3 = get_skill_waypoints(p, [6.3202399e-01, 7.6014292e-04, -7.9036134e-01, 1.0000000e+00], skill='smooth')
+        # plan = self.moveit_group.plan(joints=pre_manipulation_joint_state0.position)
+        # self.moveit_group.execute(plan[1], wait=True)
+        # rospy.sleep(1.0)
+        # plan = self.moveit_group.plan(joints=pre_manipulation_joint_state.position)
+        # self.moveit_group.execute(plan[1], wait=True)
+        # rospy.sleep(1.0)
+        # p = self.moveit_group.get_current_pose().pose
+        # waypoints_smooth3 = get_skill_waypoints(p, [4.9667686e-01, -8.6327159e-04, -3.8464785e-01, 9.9987036e-01], skill='smooth')
+        # self.plan_and_execute(waypoints_smooth3)
+        # rospy.sleep(1.0)
+        # plan = self.moveit_group.plan(joints=waiting_joint_state.position)
+        # self.moveit_group.execute(plan[1], wait=True)
 
         return SkillResponse()
 
