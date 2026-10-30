@@ -153,7 +153,7 @@ class Controller:
         self.delta_position = 0.005  # meter per waypoint
         self.delta_angle = 5  # angle per waypoint
 
-        # self.init_robot()
+        self.init_robot()
         rospy.Subscriber('/joint_states', JointState, self.current_pose_callback)
 
         self.print_pose_service = rospy.Service('print_pose', PrintPose, self.print_pose)

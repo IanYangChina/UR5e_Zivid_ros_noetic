@@ -23,6 +23,7 @@ catkin_install_python(PROGRAMS
     nodes/send_pose_cmd.py
     nodes/ur5e_state_listener.py
     nodes/ur5e_controller_moveit.py
+    nodes/ur5e_controller_moveit_icrl2026.py
     nodes/keyboard_event_node.py
     nodes/zivid_live_2d.py
     nodes/verify_calibration_result_aruco.py
